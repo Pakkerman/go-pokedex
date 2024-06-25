@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"sort"
 	"strings"
 	"time"
+
+	"github.com/pakkermandev/go-pokedex/pokecache"
 )
 
 type Location struct {
@@ -16,85 +17,152 @@ type Location struct {
 }
 
 var (
-	Cache [][]Location
-	Page  int = -1
+	Cache pokecache.Cache = *pokecache.NewCache(time.Millisecond * 5000)
+	Page  int             = -1
 )
 
 func GetNextMap() {
 	Page++
-	Cache = append(Cache, fetchMap(Page))
+	endpoint := fmt.Sprintf("https://pokeapi.co/api/v2/location/?offset=%d", Page*20)
 
-	PrintLocations(Cache[Page])
+	cache, ok := Cache.Get(endpoint)
+	if !ok {
+		resp, err := http.Get(endpoint)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+
+		defer resp.Body.Close()
+
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return
+		}
+
+		Cache.Add(endpoint, body)
+		cache = body
+	}
+
+	location := struct {
+		Results []struct {
+			Name string `json:"name"`
+		} `json:"results"`
+	}{}
+
+	if err := json.Unmarshal(cache, &location); err != nil {
+		return
+	}
+
+	var out strings.Builder
+	for i := 0; i < len(location.Results); i++ {
+		out.WriteString(location.Results[i].Name)
+		out.WriteString("\n")
+	}
+	fmt.Printf("\n%vpage: %v\n", out.String(), Page+1)
 }
 
 func GetPreviousMap() {
-	if Page <= 0 {
-		fmt.Println("You are at the beginning of the map!")
-		Page = 0
+	Page--
+	endpoint := fmt.Sprintf("https://pokeapi.co/api/v2/location/?offset=%d", Page*20)
+
+	cache, ok := Cache.Get(endpoint)
+	if !ok {
+		resp, err := http.Get(endpoint)
+		if err != nil {
+			fmt.Println("something wrong with GET\n", err)
+			return
+		}
+
+		defer resp.Body.Close()
+
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return
+		}
+
+		Cache.Add(endpoint, body)
+		cache = body
+	}
+
+	location := struct {
+		Results []struct {
+			Name string `json:"name"`
+		} `json:"results"`
+	}{}
+
+	if err := json.Unmarshal(cache, &location); err != nil {
 		return
 	}
-	Page--
-	PrintLocations(Cache[Page])
+
+	var out strings.Builder
+	for i := 0; i < len(location.Results); i++ {
+		out.WriteString(location.Results[i].Name)
+		out.WriteString("\n")
+	}
+	fmt.Printf("\n%vpage: %v\n", out.String(), Page+1)
 }
 
-func fetchMap(pointer int) []Location {
-	allLocations := []Location{}
-	locationCh := make(chan Location)
+func Explore(name string) {
+	endpoint := fmt.Sprintf("https://pokeapi.co/api/v2/location-area/%s", name)
+	fmt.Printf("\nexploreing area %s\n", name)
 
-	start := (pointer * 20) + 1
-	end := (pointer * 20) + 20
-	requests := 0
-	for i := start; i <= end; i++ {
+	cache, ok := Cache.Get(endpoint)
+	if !ok {
+		resp, err := http.Get(endpoint)
+		if err != nil {
+			fmt.Println("something wrong with GET\n", err)
+			return
+		}
 
-		go func(i int) {
-			fmt.Printf("fetching locations (%v / %v)\r", start+requests, end)
-			requests += 1
+		defer resp.Body.Close()
 
-			endpoint := fmt.Sprintf("https://pokeapi.co/api/v2/location/%d/", i)
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return
+		}
 
-			resp, err := http.Get(endpoint)
-			if err != nil {
-				fmt.Println(err)
-
-				locationCh <- Location{Name: "Bad GET request", Id: -1}
-				return
-			}
-
-			defer resp.Body.Close()
-
-			body, err := io.ReadAll(resp.Body)
-			if err != nil {
-				// fmt.Println("error reading body", err)
-				locationCh <- Location{Name: "unknown location", Id: -1}
-				return
-			}
-
-			location := Location{}
-			if err := json.Unmarshal(body, &location); err != nil {
-				// fmt.Println("error unmarshal body")
-				locationCh <- Location{Name: "unknown location", Id: i}
-				return
-			}
-
-			locationCh <- location
-		}(i)
-
-		time.Sleep(50 * time.Millisecond)
+		Cache.Add(endpoint, body)
+		cache = body
 	}
 
-	for i := 0; i < 20; i++ {
-		location := <-locationCh
-		allLocations = append(allLocations, Location{Name: location.Name, Id: location.Id})
+	location := struct {
+		PokemonEncounters []struct {
+			Pokemon struct {
+				Name string `json:"name"`
+				URL  string `json:"url"`
+			} `json:"pokemon"`
+			VersionDetails []struct {
+				EncounterDetails []struct {
+					Chance          int   `json:"chance"`
+					ConditionValues []any `json:"condition_values"`
+					MaxLevel        int   `json:"max_level"`
+					Method          struct {
+						Name string `json:"name"`
+						URL  string `json:"url"`
+					} `json:"method"`
+					MinLevel int `json:"min_level"`
+				} `json:"encounter_details"`
+				MaxChance int `json:"max_chance"`
+				Version   struct {
+					Name string `json:"name"`
+					URL  string `json:"url"`
+				} `json:"version"`
+			} `json:"version_details"`
+		} `json:"pokemon_encounters"`
+	}{}
+
+	if err := json.Unmarshal(cache, &location); err != nil {
+		return
 	}
 
-	close(locationCh)
+	var out strings.Builder
+	for i := 0; i < len(location.PokemonEncounters); i++ {
+		str := fmt.Sprintf("- %s\n", location.PokemonEncounters[i].Pokemon.Name)
+		out.WriteString(str)
+	}
 
-	sort.Slice(allLocations, func(i, j int) bool {
-		return allLocations[i].Id < allLocations[j].Id
-	})
-
-	fmt.Printf("\r%s", strings.Repeat(" ", 80))
-	return allLocations
+	fmt.Println(out.String())
 }
 
 func PrintLocations(location []Location) {

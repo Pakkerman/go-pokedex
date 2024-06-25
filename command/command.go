@@ -10,7 +10,7 @@ import (
 type CliCommand struct {
 	Name        string
 	Description string
-	Callback    func() error
+	Callback    func(*string) error
 }
 
 func GetOptions() map[string]CliCommand {
@@ -35,10 +35,15 @@ func GetOptions() map[string]CliCommand {
 			Description: "Get the previous 20 locations",
 			Callback:    mapbLocations,
 		},
+		"explore": {
+			Name:        "explore",
+			Description: "explore the area",
+			Callback:    explore,
+		},
 	}
 }
 
-func commandHelp() error {
+func commandHelp(arg *string) error {
 	fmt.Println("\nUsage:")
 
 	options := GetOptions()
@@ -51,19 +56,25 @@ func commandHelp() error {
 	return nil
 }
 
-func commandExit() error {
+func commandExit(arg *string) error {
 	fmt.Println("Exit the program")
 	os.Exit(0)
 	return nil
 }
 
-func mapLocations() error {
+func mapLocations(arg *string) error {
 	api.GetNextMap()
 
 	return nil
 }
 
-func mapbLocations() error {
+func mapbLocations(arg *string) error {
 	api.GetPreviousMap()
+	return nil
+}
+
+func explore(arg *string) error {
+	name := *arg
+	api.Explore(name)
 	return nil
 }
