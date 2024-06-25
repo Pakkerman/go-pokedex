@@ -4,11 +4,13 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+
+	"github.com/pakkermandev/go-pokedex/command"
 )
 
 func main() {
 	scanner := bufio.NewScanner(os.Stdin)
-	options := getOptions()
+	options := command.GetOptions()
 
 	for {
 		fmt.Print("Pokedex > ")
@@ -18,48 +20,17 @@ func main() {
 		}
 
 		input := scanner.Text()
-		fmt.Println("you entered: ", input)
 
-		option := options[input]
-		option.callback()
+		// utils.ClearConsole()
+
+		option, ok := options[input]
+		if !ok {
+			fmt.Println("error: unknown command")
+			options["help"].Callback()
+			continue
+		}
+
+		option.Callback()
+
 	}
-}
-
-type cliCommand struct {
-	name        string
-	description string
-	callback    func() error
-}
-
-func getOptions() map[string]cliCommand {
-	return map[string]cliCommand{
-		"help": {
-			name:        "help",
-			description: "Displays a help message",
-			callback:    commandHelp,
-		},
-		"exit": {
-			name:        "exit",
-			description: "Exit the Pokedex",
-			callback:    commandExit,
-		},
-	}
-}
-
-func commandHelp() error {
-	fmt.Println("Welcome to Pokedex! \nUsage: \n")
-
-	options := getOptions()
-
-	for _, opt := range options {
-		fmt.Printf("%v: %v\n", opt.name, opt.description)
-	}
-
-	return nil
-}
-
-func commandExit() error {
-	fmt.Println("Exit the program")
-	os.Exit(0)
-	return nil
 }
