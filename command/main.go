@@ -19,7 +19,10 @@ type Pokedex struct {
 	PokemonsCaught map[string]string
 }
 
-var pokedex Pokedex
+var (
+	pokedex Pokedex = Pokedex{PokemonsCaught: make(map[string]string)}
+	page    int     = -1
+)
 
 func GetOptions() map[string]CliCommand {
 	return map[string]CliCommand{
@@ -81,19 +84,40 @@ func commandExit(arg *string) error {
 }
 
 func mapLocations(arg *string) error {
-	err := api.GetNextMap()
+	page++
+	locations, err := api.GetLocations(page)
 	if err != nil {
 		return err
 	}
+
+	var out strings.Builder
+	for i := 0; i < len(locations.Results); i++ {
+		out.WriteString(locations.Results[i].Name)
+		out.WriteString("\n")
+	}
+	fmt.Printf("\n%vpage: %v\n", out.String(), page+1)
 
 	return nil
 }
 
 func mapbLocations(arg *string) error {
-	err := api.GetPreviousMap()
+	if page-1 <= 0 {
+		fmt.Println("You are at the first page")
+	} else {
+		page--
+	}
+
+	locations, err := api.GetLocations(page)
 	if err != nil {
 		return err
 	}
+
+	var out strings.Builder
+	for i := 0; i < len(locations.Results); i++ {
+		out.WriteString(locations.Results[i].Name)
+		out.WriteString("\n")
+	}
+	fmt.Printf("\n%vpage: %v\n", out.String(), page+1)
 	return nil
 }
 
@@ -122,9 +146,6 @@ func catch(arg *string) error {
 	}
 
 	fmt.Println("You successfully captured", pokemon.Name)
-	if pokedex.PokemonsCaught == nil {
-		pokedex.PokemonsCaught = make(map[string]string)
-	}
 	pokedex.PokemonsCaught[pokemon.Name] = pokemon.Name
 
 	return nil
