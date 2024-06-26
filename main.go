@@ -42,7 +42,6 @@ func main() {
 			fmt.Println("Command not found:", command)
 		}
 
-		fmt.Println("Enter command:")
 	}
 
 	if err := scanner.Err(); err != nil {

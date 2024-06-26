@@ -5,15 +5,30 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/pakkermandev/go-pokedex/pokecache"
 )
 
-type Location struct {
-	Name string `json:"name"`
-	Id   int    `json:"id"`
+type Pokemon struct {
+	Id             int    `json:"id"`
+	Name           string `json:"name"`
+	BaseExperience int    `json:"base_experience"`
+	Height         int    `json:"height"`
+	Weight         int    `json:"weight"`
+	Stats          []struct {
+		BaseStat int `json:"base_stat"`
+		Stat     struct {
+			Name string `json:"name"`
+		} `json:"stat"`
+	} `json:"stats"`
+	Types []struct {
+		Type struct {
+			Name string `json:"name"`
+		}
+	} `json:"types"`
 }
 
 var (
@@ -21,7 +36,7 @@ var (
 	Page  int             = -1
 )
 
-func GetNextMap() {
+func GetNextMap() error {
 	Page++
 	endpoint := fmt.Sprintf("https://pokeapi.co/api/v2/location/?offset=%d", Page*20)
 
@@ -30,14 +45,14 @@ func GetNextMap() {
 		resp, err := http.Get(endpoint)
 		if err != nil {
 			fmt.Println(err)
-			return
+			return err
 		}
 
 		defer resp.Body.Close()
 
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
-			return
+			return err
 		}
 
 		Cache.Add(endpoint, body)
@@ -51,7 +66,7 @@ func GetNextMap() {
 	}{}
 
 	if err := json.Unmarshal(cache, &location); err != nil {
-		return
+		return err
 	}
 
 	var out strings.Builder
@@ -60,9 +75,10 @@ func GetNextMap() {
 		out.WriteString("\n")
 	}
 	fmt.Printf("\n%vpage: %v\n", out.String(), Page+1)
+	return nil
 }
 
-func GetPreviousMap() {
+func GetPreviousMap() error {
 	Page--
 	endpoint := fmt.Sprintf("https://pokeapi.co/api/v2/location/?offset=%d", Page*20)
 
@@ -71,14 +87,14 @@ func GetPreviousMap() {
 		resp, err := http.Get(endpoint)
 		if err != nil {
 			fmt.Println("something wrong with GET\n", err)
-			return
+			return err
 		}
 
 		defer resp.Body.Close()
 
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
-			return
+			return err
 		}
 
 		Cache.Add(endpoint, body)
@@ -92,7 +108,7 @@ func GetPreviousMap() {
 	}{}
 
 	if err := json.Unmarshal(cache, &location); err != nil {
-		return
+		return err
 	}
 
 	var out strings.Builder
@@ -101,10 +117,22 @@ func GetPreviousMap() {
 		out.WriteString("\n")
 	}
 	fmt.Printf("\n%vpage: %v\n", out.String(), Page+1)
+	return nil
 }
 
-func Explore(name string) {
-	endpoint := fmt.Sprintf("https://pokeapi.co/api/v2/location-area/%s", name)
+func Explore(name string) error {
+	var endpoint string
+	match, err := regexp.MatchString("[0-9]+", name)
+	if err != nil {
+		return err
+	}
+
+	if match {
+		endpoint = fmt.Sprintf("https://pokeapi.co/api/v2/location-area/%s", name)
+	} else {
+		endpoint = fmt.Sprintf("https://pokeapi.co/api/v2/location-area/%s-area", name)
+	}
+
 	fmt.Printf("\nexploreing area %s\n", name)
 
 	cache, ok := Cache.Get(endpoint)
@@ -112,14 +140,14 @@ func Explore(name string) {
 		resp, err := http.Get(endpoint)
 		if err != nil {
 			fmt.Println("something wrong with GET\n", err)
-			return
+			return err
 		}
 
 		defer resp.Body.Close()
 
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
-			return
+			return err
 		}
 
 		Cache.Add(endpoint, body)
@@ -153,7 +181,7 @@ func Explore(name string) {
 	}{}
 
 	if err := json.Unmarshal(cache, &location); err != nil {
-		return
+		return err
 	}
 
 	var out strings.Builder
@@ -163,13 +191,102 @@ func Explore(name string) {
 	}
 
 	fmt.Println(out.String())
+	return nil
 }
 
-func PrintLocations(location []Location) {
-	var out strings.Builder
-	for i := 0; i < len(location); i++ {
-		out.WriteString(location[i].Name)
-		out.WriteString("\n")
+// func Catch(name string) (Pokemon, error) {
+// 	var pokemon Pokemon
+//
+// 	cacheEntry, ok := Cache.Get(name)
+// 	if ok {
+//
+// 		if err := json.Unmarshal(cacheEntry, &pokemon); err != nil {
+// 			return pokemon, err
+// 		}
+// 		return pokemon, nil
+// 	}
+//
+// 	endpoint := fmt.Sprintf("https://pokeapi.co/api/v2/pokemon/%s", name)
+// 	resp, err := http.Get(endpoint)
+// 	if err != nil {
+// 		return pokemon, err
+// 	}
+//
+// 	defer resp.Body.Close()
+//
+// 	body, err := io.ReadAll(resp.Body)
+// 	if err != nil {
+// 		return pokemon, err
+// 	}
+//
+// 	Cache.Add(name, body)
+//
+// 	if err := json.Unmarshal(body, &pokemon); err != nil {
+// 		return pokemon, err
+// 	}
+//
+// 	return pokemon, nil
+// }
+
+func Inspect(name string) (Pokemon, error) {
+	var pokemon Pokemon
+
+	cacheEntry, ok := Cache.Get(name)
+	if !ok {
+		endpoint := fmt.Sprintf("https://pokeapi.co/api/v2/pokemon/%s", name)
+
+		resp, err := http.Get(endpoint)
+		if err != nil {
+			return pokemon, err
+		}
+
+		defer resp.Body.Close()
+
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return pokemon, err
+		}
+
+		cacheEntry = body
 	}
-	fmt.Printf("\n%v\n", out.String())
+
+	if err := json.Unmarshal(cacheEntry, &pokemon); err != nil {
+		return pokemon, err
+	}
+
+	return pokemon, nil
+}
+
+func GetPokemon(name string) (Pokemon, error) {
+	var pokemon Pokemon
+
+	cache, ok := Cache.Get(name)
+	if ok {
+		if err := json.Unmarshal(cache, &pokemon); err != nil {
+			return pokemon, nil
+		}
+
+		return pokemon, nil
+	}
+
+	endpoint := fmt.Sprintf("https://pokeapi.co/api/v2/pokemon/%s", name)
+	resp, err := http.Get(endpoint)
+	if err != nil {
+		return pokemon, nil
+	}
+
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return pokemon, nil
+	}
+
+	Cache.Add(name, body)
+
+	if err := json.Unmarshal(body, &pokemon); err != nil {
+		return pokemon, err
+	}
+
+	return pokemon, nil
 }
