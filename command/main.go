@@ -92,8 +92,8 @@ func mapLocations(arg *string) error {
 
 	var out strings.Builder
 	for i := 0; i < len(locations.Results); i++ {
-		out.WriteString(locations.Results[i].Name)
-		out.WriteString("\n")
+		str := fmt.Sprintf("%02d: %s\n", i+1+(page*20), locations.Results[i].Name)
+		out.WriteString(str)
 	}
 	fmt.Printf("\n%vpage: %v\n", out.String(), page+1)
 
@@ -101,7 +101,7 @@ func mapLocations(arg *string) error {
 }
 
 func mapbLocations(arg *string) error {
-	if page-1 <= 0 {
+	if page-1 < 0 {
 		fmt.Println("You are at the first page")
 	} else {
 		page--
@@ -114,8 +114,8 @@ func mapbLocations(arg *string) error {
 
 	var out strings.Builder
 	for i := 0; i < len(locations.Results); i++ {
-		out.WriteString(locations.Results[i].Name)
-		out.WriteString("\n")
+		str := fmt.Sprintf("%02d: %s\n", i+1+(page*20), locations.Results[i].Name)
+		out.WriteString(str)
 	}
 	fmt.Printf("\n%vpage: %v\n", out.String(), page+1)
 	return nil
@@ -124,10 +124,19 @@ func mapbLocations(arg *string) error {
 func explore(arg *string) error {
 	name := *arg
 
-	err := api.Explore(name)
+	area, err := api.GetArea(name)
 	if err != nil {
 		return err
 	}
+
+	var out strings.Builder
+	out.WriteString(fmt.Sprintf("\nExploring area: %s\n", area.Names[0].Name))
+	for i := 0; i < len(area.PokemonEncounters); i++ {
+		str := fmt.Sprintf("- %s\n", area.PokemonEncounters[i].Pokemon.Name)
+		out.WriteString(str)
+	}
+
+	fmt.Println(out.String())
 	return nil
 }
 
@@ -177,7 +186,7 @@ func inspect(arg *string) error {
 
 	out.WriteString("Types:\n")
 	for i := 0; i < len(pokemon.Types); i++ {
-		out.WriteString(fmt.Sprintf("  - %s", pokemon.Types[i].Type.Name))
+		out.WriteString(fmt.Sprintf("  - %s\n", pokemon.Types[i].Type.Name))
 	}
 
 	out.WriteString("\n")

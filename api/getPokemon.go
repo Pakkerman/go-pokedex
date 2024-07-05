@@ -5,31 +5,14 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-)
 
-type Pokemon struct {
-	Id             int    `json:"id"`
-	Name           string `json:"name"`
-	BaseExperience int    `json:"base_experience"`
-	Height         int    `json:"height"`
-	Weight         int    `json:"weight"`
-	Stats          []struct {
-		BaseStat int `json:"base_stat"`
-		Stat     struct {
-			Name string `json:"name"`
-		} `json:"stat"`
-	} `json:"stats"`
-	Types []struct {
-		Type struct {
-			Name string `json:"name"`
-		}
-	} `json:"types"`
-}
+	"github.com/pakkermandev/go-pokedex/pokecache"
+)
 
 func GetPokemon(name string) (Pokemon, error) {
 	var pokemon Pokemon
 
-	cache, ok := Cache.Get(name)
+	cache, ok := pokecache.PokeCache.Get(name)
 	if ok {
 		if err := json.Unmarshal(cache, &pokemon); err != nil {
 			return pokemon, nil
@@ -51,7 +34,7 @@ func GetPokemon(name string) (Pokemon, error) {
 		return pokemon, nil
 	}
 
-	Cache.Add(name, body)
+	pokecache.PokeCache.Add(name, body)
 
 	if err := json.Unmarshal(body, &pokemon); err != nil {
 		return pokemon, err

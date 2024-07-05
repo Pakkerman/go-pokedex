@@ -5,19 +5,15 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-)
 
-type Locations struct {
-	Results []struct {
-		Name string `json:"name"`
-	} `json:"results"`
-}
+	"github.com/pakkermandev/go-pokedex/pokecache"
+)
 
 func GetLocations(page int) (Locations, error) {
 	var locations Locations
 
 	endpoint := fmt.Sprintf("https://pokeapi.co/api/v2/location/?offset=%d", page*20)
-	cache, ok := Cache.Get(endpoint)
+	cache, ok := pokecache.PokeCache.Get(endpoint)
 	if ok {
 		if err := json.Unmarshal(cache, &locations); err != nil {
 			return locations, err
@@ -37,7 +33,7 @@ func GetLocations(page int) (Locations, error) {
 		return locations, err
 	}
 
-	Cache.Add(endpoint, body)
+	pokecache.PokeCache.Add(endpoint, body)
 
 	if err := json.Unmarshal(body, &locations); err != nil {
 		return locations, err
