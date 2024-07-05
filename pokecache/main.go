@@ -16,6 +16,8 @@ type Cache struct {
 	interval time.Duration
 }
 
+var PokeCache Cache = *NewCache(time.Millisecond * 5000)
+
 func NewCache(interval time.Duration) *Cache {
 	cache := &Cache{
 		entries:  make(map[string]cacheEntry),
