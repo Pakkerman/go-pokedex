@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -37,6 +38,10 @@ func GetArea(name string) (Area, error) {
 	}
 
 	defer resp.Body.Close()
+
+	if resp.Status == "404 Not Found" {
+		return area, errors.New("Area does not exist")
+	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {

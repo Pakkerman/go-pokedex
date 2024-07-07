@@ -38,28 +38,33 @@ func GetOptions() map[string]CliCommand {
 		},
 		"map": {
 			Name:        "map",
-			Description: "Get the next 20 locations",
+			Description: "Map out the next 20 locations",
 			Callback:    mapLocations,
 		},
 		"mapb": {
 			Name:        "mapb",
-			Description: "Get the previous 20 locations",
+			Description: "Map out the previous 20 locations",
 			Callback:    mapbLocations,
 		},
 		"explore": {
 			Name:        "explore",
-			Description: "explore the area",
+			Description: "Explore the area",
 			Callback:    explore,
 		},
 		"catch": {
 			Name:        "catch",
-			Description: "catch a pokemon",
+			Description: "Try to catch a pokemon",
 			Callback:    catch,
 		},
 		"inspect": {
-			Name:        "catch",
-			Description: "catch a pokemon",
+			Name:        "insepct",
+			Description: "Inspect a pokemon that you have captured",
 			Callback:    inspect,
+		},
+		"pokedex": {
+			Name:        "pokedex",
+			Description: "List all your pokemons",
+			Callback:    getPokedex,
 		},
 	}
 }
@@ -190,6 +195,25 @@ func inspect(arg *string) error {
 	}
 
 	out.WriteString("\n")
+	fmt.Print(out.String())
+	return nil
+}
+
+func getPokedex(arg *string) error {
+	if len(pokedex.PokemonsCaught) == 0 {
+		fmt.Printf("You have not catch any pokemons!\n")
+		return nil
+
+	}
+
+	var out strings.Builder
+
+	out.WriteString("You have caught: \n")
+	for key := range pokedex.PokemonsCaught {
+		out.WriteString(fmt.Sprintf(" - %s\n", key))
+	}
+
+	out.WriteString(fmt.Sprintf("Total: %d pokemons\n", len(pokedex.PokemonsCaught)))
 	fmt.Print(out.String())
 	return nil
 }
